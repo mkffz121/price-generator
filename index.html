@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Match Price Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            text-align: center;
+        }
+        form {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            background-color: #f9f9f9;
+        }
+        label {
+            display: block;
+            margin-bottom: 10px;
+        }
+        input, button, select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #output {
+            max-width: 500px;
+            margin: 20px auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            background-color: #e9ffe9;
+            white-space: pre-wrap;
+            position: relative;
+            cursor: pointer;
+        }
+        #output:hover {
+            background-color: #dfffdf;
+        }
+    </style>
+</head>
+<body>
+    <h1>Match Price Generator</h1>
+    <form id="matchForm">
+        <label>Home Opponent: <input type="text" id="homeOpponent" required></label>
+        <label>Away Opponent: <input type="text" id="awayOpponent" required></label>
+        <label>Match Date: <input type="date" id="matchDate" required></label>
+        <label>Short Upper Price (£): <input type="number" id="shortUpper" inputmode="decimal" required></label>
+        <label>Long Upper Price (£): <input type="number" id="longUpper" inputmode="decimal" required></label>
+        <label>Long Lower Price (£): <input type="number" id="longLower" inputmode="decimal" required></label>
+        <label>Markup Percentage (%): 
+            <input type="range" id="markup" min="0" max="100" step="1" value="0" oninput="updateRangeLabel('markupLabel', this.value)">
+            <span id="markupLabel">0%</span>
+        </label>
+        <label>
+            Category:
+            <select id="category" onchange="handleCategoryChange()">
+                <option value="pairs" selected>Pairs</option>
+                <option value="singles">Singles</option>
+                <option value="trios">Trios</option>
+            </select>
+        </label>
+        <div id="additionalFields" style="display:none;">
+            <!-- Additional fields for Singles or Trios will be shown here -->
+        </div>
+        <button type="button" onclick="generateMessage()">Generate Message</button>
+    </form>
+
+    <div id="output" onclick="copyToClipboard()" style="display:none;">Click here to copy the generated message!</div>
+
+    <script>
+        function roundToNearestFive(value) {
+            return Math.ceil(value / 5) * 5;
+        }
+
+        function updateRangeLabel(labelId, value) {
+            document.getElementById(labelId).innerText = `${value}%`;
+        }
+
+        function handleCategoryChange() {
+            const category = document.getElementById('category').value;
+            const additionalFields = document.getElementById('additionalFields');
+            additionalFields.innerHTML = ''; // Clear previous fields
+
+            if (category === 'singles') {
+                additionalFields.innerHTML = `
+                    <label>Singles Percentage (%): 
+                        <input type="range" id="singlesPercentage" min="0" max="100" step="1" value="0" oninput="updateRangeLabel('singlesPercentageLabel', this.value)">
+                        <span id="singlesPercentageLabel">0%</span>
+                    </label>
+                `;
+                additionalFields.style.display = 'block';
+            } else if (category === 'trios') {
+                additionalFields.innerHTML = `
+                    <label>Trios Percentage (%): 
+                        <input type="range" id="triosPercentage" min="0" max="100" step="1" value="0" oninput="updateRangeLabel('triosPercentageLabel', this.value)">
+                        <span id="triosPercentageLabel">0%</span>
+                    </label>
+                `;
+                additionalFields.style.display = 'block';
+            } else {
+                additionalFields.style.display = 'none'; // Hide for "Pairs"
+            }
+        }
+
+        function calculateAdjustedPrice(basePrice, markup, category, percentage) {
+            let adjustedPrice = basePrice;
+
+            if (category === 'singles' && percentage) {
+                adjustedPrice -= basePrice * (percentage / 100); // Deduct
+            } else if (category === 'trios' && percentage) {
+                adjustedPrice += basePrice * (percentage / 100); // Add
+            }
+
+            adjustedPrice += adjustedPrice * (markup / 100); // Apply markup
+            return roundToNearestFive(adjustedPrice); // Round to nearest 5
+        }
+
+        function generateMessage() {
+            // Get input values
+            const home = document.getElementById('homeOpponent').value;
+            const away = document.getElementById('awayOpponent').value;
+            const date = document.getElementById('matchDate').value;
+            const shortUpper = parseFloat(document.getElementById('shortUpper').value);
+            const longUpper = parseFloat(document.getElementById('longUpper').value);
+            const longLower = parseFloat(document.getElementById('longLower').value);
+            const markup = parseFloat(document.getElementById('markup').value);
+            const category = document.getElementById('category').value;
+
+            // Get category-specific percentage
+            let percentage = 0;
+            if (category === 'singles') {
+                percentage = parseFloat(document.getElementById('singlesPercentage').value) || 0;
+            } else if (category === 'trios') {
+                percentage = parseFloat(document.getElementById('triosPercentage').value) || 0;
+            }
+
+            // Calculate prices based on category
+            const newShortUpper = calculateAdjustedPrice(shortUpper, markup, category, percentage);
+            const newLongUpper = calculateAdjustedPrice(longUpper, markup, category, percentage);
+            const newLongLower = calculateAdjustedPrice(longLower, markup, category, percentage);
+
+            // Generate the message with flipped home and away opponents
+            const message = `
+${home} ضد ${away}
+${date}
+
+ورا القول ${newShortUpper}£
+واجهة فوق ${newLongUpper}£
+واجهة تحت ${newLongLower}£
+
+يوجد لدينا التقسيط تابي للارقام الاماراتية ✅
+Whatsapp: +971 50 363 8936
+            `;
+
+            // Display the message
+            const outputDiv = document.getElementById('output');
+            outputDiv.style.display = 'block';
+            outputDiv.textContent = message.trim();
+        }
+
+        function copyToClipboard() {
+            const outputDiv = document.getElementById('output');
+            const range = document.createRange();
+            const selection = window.getSelection();
+
+            range.selectNodeContents(outputDiv);
+            selection.removeAllRanges();
+            selection.addRange(range);
+
+            document.execCommand('copy');
+            alert('Message copied to clipboard!');
+        }
+    </script>
+</body>
+</html>
